@@ -7,7 +7,6 @@ import re
 import sys
 import os
 from datetime import datetime
-from playwright.sync_api import sync_playwright
 import requests
 
 # === LOGGING SU FILE ===
@@ -46,23 +45,23 @@ def extract_canvas_id_from_url(url: str) -> str | None:
         response.raise_for_status()
         html = response.text
         log_to_file(f"[HTML Fallback] HTML scaricato: {len(html)} caratteri")
-            
-            # Cerca il canvasId nel markup Mirador
-            # Pattern: canvasId: 'https://...../0nZjWV9'
-            match = re.search(r"canvasId:\s*['\"]([^'\"]*)/([A-Za-z0-9]+)['\"]", html)
-            if match:
-                canvas_id = match.group(2)
-                log_to_file(f"[HTML Fallback] Canvas ID trovato (JS): {canvas_id}")
-                return canvas_id
+        
+        # Cerca il canvasId nel markup Mirador
+        # Pattern: canvasId: 'https://...../0nZjWV9'
+        match = re.search(r"canvasId:\s*['\"]([^'\"]*)/([A-Za-z0-9]+)['\"]", html)
+        if match:
+            canvas_id = match.group(2)
+            log_to_file(f"[HTML Fallback] Canvas ID trovato (JS): {canvas_id}")
+            return canvas_id
 
-            # Cerca in formato JSON (__NEXT_DATA__ o script inline)
-            match = re.search(r'"canvasId"\s*:\s*"([^"]*)/([A-Za-z0-9]+)"', html)
-            if match:
-                canvas_id = match.group(2)
-                log_to_file(f"[HTML Fallback] Canvas ID trovato (JSON): {canvas_id}")
-                return canvas_id
+        # Cerca in formato JSON (__NEXT_DATA__ o script inline)
+        match = re.search(r'"canvasId"\s*:\s*"([^"]*)/([A-Za-z0-9]+)"', html)
+        if match:
+            canvas_id = match.group(2)
+            log_to_file(f"[HTML Fallback] Canvas ID trovato (JSON): {canvas_id}")
+            return canvas_id
 
-            log_to_file("[HTML Fallback] canvasId non trovato nel markup Mirador")
+        log_to_file("[HTML Fallback] canvasId non trovato nel markup Mirador")
             
     except Exception as e:
         log_to_file(f"[HTML Fallback] Errore scaricamento HTML: {str(e)[:100]}")
