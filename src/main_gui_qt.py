@@ -1026,16 +1026,15 @@ class MainWindow(QMainWindow):
         impostazioni_menu.addAction(gm("Chiudi"), self.close)
         menubar.addMenu(impostazioni_menu)
 
-        # Su macOS la menubar è nativa (barra in cima allo schermo):
-        # applicare background/color via stylesheet la rende invisibile.
-        # Lo stylesheet viene applicato solo su Windows/Linux.
-        import platform as _platform
-        if _platform.system() != "Darwin":
-            menubar.setStyleSheet(
-                "QMenuBar { background: #d2bb8a; color: #222; font-weight: bold; border: none; } "
-                "QMenuBar::item:selected { background: #e5d3b3; color: #222; } "
-                "QMenu { background: #f5e6c3; color: #222; } "
-            )
+        # setNativeMenuBar(False): incorpora il menu nella finestra (come Windows/Linux).
+        # Su macOS la menubar nativa appare in cima allo schermo e non è visibile
+        # nell'interfaccia dell'app. Con False, il menu è nel corpo della finestra.
+        menubar.setNativeMenuBar(False)
+        menubar.setStyleSheet(
+            "QMenuBar { background: #d2bb8a; color: #222; font-weight: bold; border: none; } "
+            "QMenuBar::item:selected { background: #e5d3b3; color: #222; } "
+            "QMenu { background: #f5e6c3; color: #222; } "
+        )
 
         # Riga marrone sotto il menu (widget separato, non nel layout centrale)
         self.menu_separator = QLabel(self)
@@ -2822,9 +2821,15 @@ def mostra_banner_chiusura(glossario_data, lingua, banner_path, paypal_url_path,
                                     logging.debug(f"PayPal: aperto con {_prog}")
                                     break
                         elif _sys == "Darwin":
-                            # Usa path assoluto: PATH è limitata dentro bundle Finder/Dock
-                            opened = QProcess.startDetached("/usr/bin/open", [url])
-                            logging.debug(f"PayPal: /usr/bin/open (macOS) -> {opened}")
+                            # subprocess.Popen: indipendente dall'event loop Qt,
+                            # più affidabile da un handler aboutToQuit
+                            import subprocess as _subprocess
+                            try:
+                                _subprocess.Popen(["/usr/bin/open", url])
+                                opened = True
+                                logging.debug("PayPal: subprocess /usr/bin/open → ok")
+                            except Exception as _se:
+                                logging.debug(f"PayPal: subprocess /usr/bin/open fallito: {_se}")
                         else:
                             opened = QDesktopServices.openUrl(QUrl(url))
                             logging.debug(f"PayPal: QDesktopServices -> {opened}")
@@ -2934,8 +2939,16 @@ def main():
         saved = _read_config_language()
         if saved:
             lingua = saved
-            primo_avvio = False
-            logging.debug(f"Linux/macOS EXE: lingua da config file: {lingua}")
+            # Su macOS controlla anche l'accettazione del disclaimer:
+            # se non ancora accettato (es. config da versione precedente),
+            # forza primo_avvio=True per mostrare il disclaimer al prossimo avvio.
+            _disc_ok = _read_config_disclaimer_accepted()
+            if sys.platform == "darwin" and not _disc_ok:
+                primo_avvio = True
+                logging.debug(f"macOS: lingua salvata ma disclaimer non accettato → primo_avvio=True")
+            else:
+                primo_avvio = False
+                logging.debug(f"Linux/macOS EXE: lingua da config file: {lingua}")
         else:
             # Fallback: leggi /etc/atk-pro/defaults.json (scritto dal postinst)
             # Questo copre i casi in cui il postinst non ha trovato SUDO_USER
@@ -3033,10 +3046,11 @@ def main():
                 logging.info("Flag pending-disclaimer rimosso dopo accettazione")
             except OSError as e:
                 logging.warning(f"Impossibile rimuovere flag pending-disclaimer: {e}")
-        if IS_PORTABLE and accettato:
-            # Portable: persisti l'accettazione nel config affinché non venga richiesta al prossimo avvio
+        if (IS_PORTABLE or sys.platform == "darwin") and accettato:
+            # Portable / macOS: persisti l'accettazione nel config
+            # affinché non venga richiesta al prossimo avvio
             _write_config_disclaimer_accepted()
-            logging.info("Portable: disclaimer accettato, salvato in config.json")
+            logging.info(f"{'Portable' if IS_PORTABLE else 'macOS'}: disclaimer accettato, salvato in config.json")
         if not accettato:
             logging.warning("Disclaimer rifiutato → chiusura applicazione")
             # Cancella lingua salvata: al prossimo avvio primo_avvio=True / flag ancora presente
