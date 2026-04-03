@@ -8,8 +8,7 @@ import sys
 import os
 from datetime import datetime
 from playwright.sync_api import sync_playwright
-import urllib.request
-import urllib.error
+import requests
 
 # === LOGGING SU FILE ===
 LOG_FILE = os.path.join(os.path.expanduser("~"), "ATK-Pro_canvas_extraction.log")
@@ -36,19 +35,17 @@ def extract_canvas_id_from_url(url: str) -> str | None:
     """
     try:
         log_to_file(f"[HTML Fallback] Scarico HTML da {url}")
-        
-        # Scarica l'HTML della pagina
-        req = urllib.request.Request(
-            url,
-            headers={
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-            }
-        )
-        
-        with urllib.request.urlopen(req, timeout=10) as response:
-            html = response.read().decode('utf-8', errors='ignore')
-            log_to_file(f"[HTML Fallback] HTML scaricato: {len(html)} caratteri")
+
+        # Usa requests (gestisce SSL via certifi su tutte le piattaforme, incluso macOS)
+        headers = {
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Accept-Language": "it-IT,it;q=0.9",
+        }
+        response = requests.get(url, headers=headers, timeout=15)
+        response.raise_for_status()
+        html = response.text
+        log_to_file(f"[HTML Fallback] HTML scaricato: {len(html)} caratteri")
             
             # Cerca il canvasId nel markup Mirador
             # Pattern: canvasId: 'https://...../0nZjWV9'
