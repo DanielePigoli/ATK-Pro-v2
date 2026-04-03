@@ -1026,10 +1026,16 @@ class MainWindow(QMainWindow):
         impostazioni_menu.addAction(gm("Chiudi"), self.close)
         menubar.addMenu(impostazioni_menu)
 
-        # Stile menubar originale (nessuna forzatura colore bianco sulle voci)
-        menubar.setStyleSheet("QMenuBar { background: #d2bb8a; color: #222; font-weight: bold; border: none; } "
-                  "QMenuBar::item:selected { background: #e5d3b3; color: #222; } "
-                  "QMenu { background: #f5e6c3; color: #222; } ")
+        # Su macOS la menubar è nativa (barra in cima allo schermo):
+        # applicare background/color via stylesheet la rende invisibile.
+        # Lo stylesheet viene applicato solo su Windows/Linux.
+        import platform as _platform
+        if _platform.system() != "Darwin":
+            menubar.setStyleSheet(
+                "QMenuBar { background: #d2bb8a; color: #222; font-weight: bold; border: none; } "
+                "QMenuBar::item:selected { background: #e5d3b3; color: #222; } "
+                "QMenu { background: #f5e6c3; color: #222; } "
+            )
 
         # Riga marrone sotto il menu (widget separato, non nel layout centrale)
         self.menu_separator = QLabel(self)
@@ -2816,8 +2822,9 @@ def mostra_banner_chiusura(glossario_data, lingua, banner_path, paypal_url_path,
                                     logging.debug(f"PayPal: aperto con {_prog}")
                                     break
                         elif _sys == "Darwin":
-                            opened = QProcess.startDetached("open", [url])
-                            logging.debug(f"PayPal: open (macOS) -> {opened}")
+                            # Usa path assoluto: PATH è limitata dentro bundle Finder/Dock
+                            opened = QProcess.startDetached("/usr/bin/open", [url])
+                            logging.debug(f"PayPal: /usr/bin/open (macOS) -> {opened}")
                         else:
                             opened = QDesktopServices.openUrl(QUrl(url))
                             logging.debug(f"PayPal: QDesktopServices -> {opened}")
