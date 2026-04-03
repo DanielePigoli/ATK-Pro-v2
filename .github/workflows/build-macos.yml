@@ -58,10 +58,28 @@ jobs:
         iconutil -c icns /tmp/ATK-Pro.iconset -o /tmp/ATK-Pro.icns
         echo "✓ ATK-Pro.icns generato"
 
+    - name: Individua path browser Playwright (Intel)
+      id: pw_intel
+      run: |
+        BROWSERS=$(arch -x86_64 /usr/local/bin/python3.12 -c "import os; p=os.path.join(os.path.expanduser('~'), 'Library', 'Caches', 'ms-playwright'); print(p if os.path.isdir(p) else '')" 2>/dev/null || true)
+        if [ -z "$BROWSERS" ]; then
+          BROWSERS=$(arch -x86_64 /usr/local/bin/python3.12 -c "import playwright, os; print(os.path.join(os.path.dirname(playwright.__file__), 'driver', 'package', '.local-browsers'))" 2>/dev/null || true)
+        fi
+        echo "browsers_path=$BROWSERS" >> $GITHUB_OUTPUT
+        echo "Playwright browsers path: $BROWSERS"
+
     - name: Build app x86_64 (Intel / Rosetta)
       env:
         MACOSX_DEPLOYMENT_TARGET: "12.0"
       run: |
+        # Includi i browser Playwright nel bundle se disponibili
+        PW_FLAGS=""
+        if [ -n "${{ steps.pw_intel.outputs.browsers_path }}" ] && [ -d "${{ steps.pw_intel.outputs.browsers_path }}" ]; then
+          PW_FLAGS="--add-data '${{ steps.pw_intel.outputs.browsers_path }}:ms-playwright'"
+          echo "✓ Browser Playwright inclusi da: ${{ steps.pw_intel.outputs.browsers_path }}"
+        else
+          echo "⚠ Browser Playwright non trovati, Playwright userà fallback"
+        fi
         arch -x86_64 /usr/local/bin/python3.12 -m PyInstaller \
           --name ATK-Pro \
           --windowed \
@@ -72,6 +90,7 @@ jobs:
           --add-data "assets:assets" \
           --add-data "locales:locales" \
           --add-data "docs_generali/glossario_multilingua_ATK-Pro.json:docs_generali" \
+          ${PW_FLAGS} \
           --hidden-import=playwright \
           --hidden-import=PIL \
           --hidden-import=PySide6 \
@@ -196,10 +215,28 @@ jobs:
         iconutil -c icns /tmp/ATK-Pro.iconset -o /tmp/ATK-Pro.icns
         echo "✓ ATK-Pro.icns generato"
 
+    - name: Individua path browser Playwright (Silicon)
+      id: pw_silicon
+      run: |
+        BROWSERS=$(/usr/local/bin/python3.12 -c "import os; p=os.path.join(os.path.expanduser('~'), 'Library', 'Caches', 'ms-playwright'); print(p if os.path.isdir(p) else '')" 2>/dev/null || true)
+        if [ -z "$BROWSERS" ]; then
+          BROWSERS=$(/usr/local/bin/python3.12 -c "import playwright; import os; print(os.path.join(os.path.dirname(playwright.__file__), 'driver', 'package', '.local-browsers'))" 2>/dev/null || true)
+        fi
+        echo "browsers_path=$BROWSERS" >> $GITHUB_OUTPUT
+        echo "Playwright browsers path: $BROWSERS"
+
     - name: Build app arm64 (Apple Silicon nativo)
       env:
         MACOSX_DEPLOYMENT_TARGET: "12.0"
       run: |
+        # Includi i browser Playwright nel bundle se disponibili
+        PW_FLAGS=""
+        if [ -n "${{ steps.pw_silicon.outputs.browsers_path }}" ] && [ -d "${{ steps.pw_silicon.outputs.browsers_path }}" ]; then
+          PW_FLAGS="--add-data '${{ steps.pw_silicon.outputs.browsers_path }}:ms-playwright'"
+          echo "✓ Browser Playwright inclusi da: ${{ steps.pw_silicon.outputs.browsers_path }}"
+        else
+          echo "⚠ Browser Playwright non trovati, Playwright userà fallback"
+        fi
         /usr/local/bin/python3.12 -m PyInstaller \
           --name ATK-Pro \
           --windowed \
@@ -212,6 +249,7 @@ jobs:
           --add-data "assets:assets" \
           --add-data "locales:locales" \
           --add-data "docs_generali/glossario_multilingua_ATK-Pro.json:docs_generali" \
+          ${PW_FLAGS} \
           --hidden-import=playwright \
           --hidden-import=PIL \
           --hidden-import=PySide6 \

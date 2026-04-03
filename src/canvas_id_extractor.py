@@ -63,14 +63,18 @@ def extract_canvas_id_from_url(url: str) -> str | None:
     except Exception as e:
         log_to_file(f"[HTML Fallback] Errore scaricamento HTML: {str(e)[:100]}")
     
-    # Fallback finale: estrai dal segmento finale dell'URL
-    match = re.search(r'/([a-zA-Z0-9]+)$', url)
-    if match:
-        canvas_id = match.group(1)
-        log_to_file(f"[URL Fallback] Canvas ID dall'URL: {canvas_id}")
-        return canvas_id
-    
-    log_to_file("[Fallback] Impossibile estrarre canvas ID")
+    # Fallback finale: estrai il canvas hash dall'URL.
+    # Il canvas hash per an_ud/an_ua è l'ultimo segmento DOPO l'identificatore UA
+    # (es. /ark:/12657/an_ud12345/XyZ123 → XyZ123).
+    # Usa [A-Za-z0-9_-]+ per catturare hash che includono underscore/trattini,
+    # ma scarta l'ultimo segmento se è l'UA stesso (contiene 'an_u').
+    stripped = url.rstrip('/')
+    last_seg = stripped.split('/')[-1]
+    if last_seg and 'an_u' not in last_seg:
+        log_to_file(f"[URL Fallback] Canvas ID dall'URL: {last_seg}")
+        return last_seg
+
+    log_to_file("[Fallback] Impossibile estrarre canvas ID (URL termina con UA, serve rendering JS)")
     return None
 
 
