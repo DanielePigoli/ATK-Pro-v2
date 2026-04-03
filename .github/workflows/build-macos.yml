@@ -7,70 +7,205 @@ on:
       - 'v*'
   pull_request:
     branches: [ main ]
-  workflow_dispatch:  # Permette esecuzione manuale
+  workflow_dispatch:
 
 permissions:
   contents: write
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Due job paralleli:
+#   build-macos-intel        → x86_64 via Rosetta  → Intel Mac (macOS 12+)
+#   build-macos-silicon      → arm64 nativo         → Apple Silicon M1/M2/M3
+# Producono due DMG separati: ATK-Pro-macOS-Intel-vX.Y.Z.dmg
+#                              ATK-Pro-macOS-AppleSilicon-vX.Y.Z.dmg
+# ─────────────────────────────────────────────────────────────────────────────
+
 jobs:
-  build-macos:
-    # macos-latest = ARM64 (Apple Silicon) — l'unica opzione gratuita su repo pubblici.
-    # Usiamo il Python universal2 da python.org + arch -x86_64 per cross-compilare
-    # un binario x86_64 via Rosetta 2, che:
-    #   - gira nativamente su Intel Mac (macOS 12+)
-    #   - gira via Rosetta 2 (trasparente) su Apple Silicon
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # JOB 1 — Intel x86_64 (via Rosetta 2)
+  # ═══════════════════════════════════════════════════════════════════════════
+  build-macos-intel:
     runs-on: macos-latest
     
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
-      
-    - name: Install x86_64 Python 3.12 from python.org
+
+    - name: Install Python 3.12 universal2 da python.org
       run: |
-        # Il pacchetto macOS di python.org e' universal2 (Intel + Silicon).
-        # Eseguito con 'arch -x86_64' installa pacchetti x86_64 e produce binari x86_64.
-        echo "Scarico Python 3.12 universal2..."
         curl -fsSL -o /tmp/py312.pkg \
           "https://www.python.org/ftp/python/3.12.9/python-3.12.9-macos11.pkg"
         sudo installer -pkg /tmp/py312.pkg -target /
-        echo "--- Verifica installazione ---"
         /usr/local/bin/python3.12 --version
         file /usr/local/bin/python3.12
-        echo "--- Verifica modalita x86_64 via Rosetta ---"
+        echo "Verifica x86_64 via Rosetta:"
         arch -x86_64 /usr/local/bin/python3.12 -c "import platform; print('arch:', platform.machine())"
-        
+
     - name: Install dependencies (x86_64 via Rosetta)
       run: |
         arch -x86_64 /usr/local/bin/python3.12 -m pip install --upgrade pip
         arch -x86_64 /usr/local/bin/python3.12 -m pip install "setuptools<70.0" wheel
         arch -x86_64 /usr/local/bin/python3.12 -m pip install --no-cache-dir pyinstaller -r requirements.txt
-        
-    - name: Install Playwright browsers (x86_64)
+
+    - name: Install Playwright (x86_64)
+      run: arch -x86_64 /usr/local/bin/python3.12 -m playwright install chromium
+
+    - name: Converti icona .ico → .icns (Intel)
       run: |
-        arch -x86_64 /usr/local/bin/python3.12 -m playwright install chromium
-        
-    - name: Verify project structure
-      run: |
-        echo "=== Project structure ==="
-        ls -la
-        echo "=== Assets ==="
-        ls -la assets/ | head -20
-        echo "=== Locales ==="
-        ls -la locales/ | head -10
-        echo "=== Docs generali ==="
-        ls -la docs_generali/
-        
-    - name: Build macOS app with PyInstaller (x86_64 via Rosetta)
+        mkdir -p /tmp/ATK-Pro.iconset
+        arch -x86_64 /usr/local/bin/python3.12 -c "from PIL import Image; img=Image.open('assets/common/grafici/ATK-Pro.ico').convert('RGBA'); [img.resize((s,s),Image.LANCZOS).save(f'/tmp/ATK-Pro.iconset/{n}.png') for s,n in [(16,'icon_16x16'),(32,'icon_16x16@2x'),(32,'icon_32x32'),(64,'icon_32x32@2x'),(128,'icon_128x128'),(256,'icon_128x128@2x'),(256,'icon_256x256'),(512,'icon_256x256@2x'),(512,'icon_512x512'),(1024,'icon_512x512@2x')]]"
+        iconutil -c icns /tmp/ATK-Pro.iconset -o /tmp/ATK-Pro.icns
+        echo "✓ ATK-Pro.icns generato"
+
+    - name: Build app x86_64 (Intel / Rosetta)
       env:
-        MACOSX_DEPLOYMENT_TARGET: "12.0"   # macOS Monterey minimum
+        MACOSX_DEPLOYMENT_TARGET: "12.0"
       run: |
-        # arch -x86_64: esegue PyInstaller in modalita x86_64 via Rosetta 2.
-        # Produce un binario x86_64 puro (nativo Intel, Rosetta su Silicon).
         arch -x86_64 /usr/local/bin/python3.12 -m PyInstaller \
           --name ATK-Pro \
           --windowed \
-          --onefile \
-          --icon=assets/common/grafici/ATK-Pro.ico \
+          --paths src \
+          --icon=/tmp/ATK-Pro.icns \
+          --add-data "src/main_gui_qt.py:src" \
+          --add-data "src/user_prompts.py:src" \
+          --add-data "assets:assets" \
+          --add-data "locales:locales" \
+          --add-data "docs_generali/glossario_multilingua_ATK-Pro.json:docs_generali" \
+          --hidden-import=playwright \
+          --hidden-import=PIL \
+          --hidden-import=PySide6 \
+          --hidden-import=PySide6.QtCore \
+          --hidden-import=PySide6.QtGui \
+          --hidden-import=PySide6.QtWidgets \
+          --hidden-import=requests \
+          --hidden-import=urllib3 \
+          --hidden-import=certifi \
+          --hidden-import=src.main_gui_qt \
+          --hidden-import=src.user_prompts \
+          --exclude-module=pytest \
+          --exclude-module=matplotlib \
+          --exclude-module=scipy \
+          --exclude-module=numpy \
+          --exclude-module=pandas \
+          src/main.py
+        [ -f "Info.plist" ] && cp -f Info.plist dist/ATK-Pro.app/Contents/Info.plist
+        ARCH=$(lipo -archs dist/ATK-Pro.app/Contents/MacOS/ATK-Pro)
+        echo "Architettura: $ARCH"
+        [[ "$ARCH" == "x86_64" ]] && echo "✓ x86_64 confermato" || { echo "✗ Architettura inattesa: $ARCH"; exit 1; }
+
+    - name: Ad-hoc sign + verifica (Intel)
+      run: |
+        codesign --deep --force --sign - dist/ATK-Pro.app
+        codesign --verify --verbose dist/ATK-Pro.app \
+          && echo "✓ Firma ad-hoc valida" \
+          || { echo "✗ Verifica firma fallita"; exit 1; }
+
+    - name: Leggi versione
+      id: ver
+      run: |
+        VER=$(grep -m1 'VERSION' src/main_gui_qt.py | grep -o '[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*')
+        [ -z "$VER" ] && VER="2.2.0"
+        echo "version=$VER" >> $GITHUB_OUTPUT
+        echo "Versione: $VER"
+
+    - name: Crea DMG Intel
+      run: |
+        mkdir -p dist/dmg_intel
+        cp -r dist/ATK-Pro.app dist/dmg_intel/
+        [ -f "README_MACOS.txt" ] && cp README_MACOS.txt dist/dmg_intel/
+        ln -s /Applications dist/dmg_intel/Applications
+        cp assets/en/testuali/disclaimer_legale_ATK-Pro.txt /tmp/atk-disclaimer.txt
+        brew install create-dmg
+        DMG_NAME="ATK-Pro-macOS-Intel-v${{ steps.ver.outputs.version }}.dmg"
+        create-dmg \
+          --volname "ATK-Pro v${{ steps.ver.outputs.version }} — Intel" \
+          --eula /tmp/atk-disclaimer.txt \
+          --no-internet-enable \
+          dist/${DMG_NAME} \
+          dist/dmg_intel/
+        echo "✓ $(du -sh dist/${DMG_NAME})"
+
+    - name: Upload artifact (Intel app)
+      uses: actions/upload-artifact@v4
+      with:
+        name: ATK-Pro-macOS-Intel-app
+        path: dist/ATK-Pro.app
+        retention-days: 30
+
+    - name: Upload artifact (Intel DMG)
+      uses: actions/upload-artifact@v4
+      with:
+        name: ATK-Pro-macOS-Intel-dmg
+        path: dist/ATK-Pro-macOS-Intel-v*.dmg
+        retention-days: 30
+
+    - name: Upload to GitHub Release (Intel)
+      if: startsWith(github.ref, 'refs/tags/v')
+      run: |
+        REPO="$GITHUB_REPOSITORY"
+        REL_ID=$(gh api "repos/$REPO/releases" \
+          --jq "[.[] | select(.tag_name==\"${{ github.ref_name }}\")][0].id // empty" 2>/dev/null || true)
+        if [ -n "$REL_ID" ]; then
+          gh api "repos/$REPO/releases/$REL_ID" --method PATCH \
+            --field draft=false --field prerelease=false > /dev/null 2>&1 || true
+        else
+          gh release create "${{ github.ref_name }}" \
+            --title "ATK-Pro ${{ github.ref_name }}" \
+            --notes "" --draft=false 2>/dev/null || true
+        fi
+        gh release upload "${{ github.ref_name }}" \
+          dist/ATK-Pro-macOS-Intel-v${{ steps.ver.outputs.version }}.dmg \
+          --clobber
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # JOB 2 — Apple Silicon arm64 (nativo, M1/M2/M3/M4)
+  # ═══════════════════════════════════════════════════════════════════════════
+  build-macos-silicon:
+    runs-on: macos-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install Python 3.12 universal2 da python.org
+      run: |
+        curl -fsSL -o /tmp/py312.pkg \
+          "https://www.python.org/ftp/python/3.12.9/python-3.12.9-macos11.pkg"
+        sudo installer -pkg /tmp/py312.pkg -target /
+        /usr/local/bin/python3.12 --version
+        file /usr/local/bin/python3.12
+        echo "Verifica arm64 nativo:"
+        /usr/local/bin/python3.12 -c "import platform; print('arch:', platform.machine())"
+
+    - name: Install dependencies (arm64 nativo)
+      run: |
+        /usr/local/bin/python3.12 -m pip install --upgrade pip
+        /usr/local/bin/python3.12 -m pip install "setuptools<70.0" wheel
+        /usr/local/bin/python3.12 -m pip install --no-cache-dir pyinstaller -r requirements.txt
+
+    - name: Install Playwright (arm64)
+      run: /usr/local/bin/python3.12 -m playwright install chromium
+
+    - name: Converti icona .ico → .icns (Silicon)
+      run: |
+        mkdir -p /tmp/ATK-Pro.iconset
+        /usr/local/bin/python3.12 -c "from PIL import Image; img=Image.open('assets/common/grafici/ATK-Pro.ico').convert('RGBA'); [img.resize((s,s),Image.LANCZOS).save(f'/tmp/ATK-Pro.iconset/{n}.png') for s,n in [(16,'icon_16x16'),(32,'icon_16x16@2x'),(32,'icon_32x32'),(64,'icon_32x32@2x'),(128,'icon_128x128'),(256,'icon_128x128@2x'),(256,'icon_256x256'),(512,'icon_256x256@2x'),(512,'icon_512x512'),(1024,'icon_512x512@2x')]]"
+        iconutil -c icns /tmp/ATK-Pro.iconset -o /tmp/ATK-Pro.icns
+        echo "✓ ATK-Pro.icns generato"
+
+    - name: Build app arm64 (Apple Silicon nativo)
+      env:
+        MACOSX_DEPLOYMENT_TARGET: "12.0"
+      run: |
+        /usr/local/bin/python3.12 -m PyInstaller \
+          --name ATK-Pro \
+          --windowed \
+          --paths src \
+          --target-arch arm64 \
+          --icon=/tmp/ATK-Pro.icns \
           --osx-bundle-identifier=com.atkpro.atkpro \
           --add-data "src/main_gui_qt.py:src" \
           --add-data "src/user_prompts.py:src" \
@@ -87,105 +222,67 @@ jobs:
           --hidden-import=urllib3 \
           --hidden-import=certifi \
           --hidden-import=src.main_gui_qt \
+          --hidden-import=src.user_prompts \
           --exclude-module=pytest \
           --exclude-module=matplotlib \
           --exclude-module=scipy \
           --exclude-module=numpy \
           --exclude-module=pandas \
           src/main.py
-        
-        # Copia Info.plist personalizzato nell'app bundle
-        if [ -f "Info.plist" ]; then
-          cp -f Info.plist dist/ATK-Pro.app/Contents/Info.plist
-          echo "✓ Info.plist personalizzato copiato"
-        fi
-          
-    - name: Verify build output
+        [ -f "Info.plist" ] && cp -f Info.plist dist/ATK-Pro.app/Contents/Info.plist
+        ARCH=$(lipo -archs dist/ATK-Pro.app/Contents/MacOS/ATK-Pro)
+        echo "Architettura: $ARCH"
+        [[ "$ARCH" == "arm64" ]] && echo "✓ arm64 confermato" || { echo "✗ Architettura inattesa: $ARCH"; exit 1; }
+
+    - name: Ad-hoc sign + verifica (Apple Silicon)
       run: |
-        echo "=== Build output ==="
-        ls -lah dist/
-        if [ -f "dist/ATK-Pro.app/Contents/MacOS/ATK-Pro" ]; then
-          echo "✓ ATK-Pro.app compiled successfully"
-          du -sh dist/ATK-Pro.app
-        else
-          echo "✗ Build failed - no .app found"
-          exit 1
-        fi
-        
-    - name: Ad-hoc code signing
-      run: |
-        # Firma ad-hoc: non richiede Apple Developer certificate.
-        # Permette a macOS di valutare l'app con Gatekeeper invece di bloccarla
-        # silenziosamente. Con questa firma, "Apri comunque" appare in
-        # Impostazioni di Sistema > Privacy e Sicurezza anche su macOS 15+,
-        # e il metodo xattr funziona in modo affidabile.
-        echo "=== Ad-hoc code signing ==="
         codesign --deep --force --sign - dist/ATK-Pro.app
         codesign --verify --verbose dist/ATK-Pro.app \
           && echo "✓ Firma ad-hoc valida" \
           || { echo "✗ Verifica firma fallita"; exit 1; }
-        
-        # Verifica architettura: deve essere x86_64
-        ARCH=$(lipo -archs dist/ATK-Pro.app/Contents/MacOS/ATK-Pro)
-        echo "Architettura binario: $ARCH"
-        [[ "$ARCH" == "x86_64" ]] && echo "✓ x86_64 confermato" || echo "⚠ Architettura inattesa: $ARCH"
 
-    - name: Create DMG installer
+    - name: Leggi versione
+      id: ver
       run: |
-        # Crea directory per DMG
-        mkdir -p dist/dmg
-        cp -r dist/ATK-Pro.app dist/dmg/
-        
-        # Copia README con istruzioni macOS
-        if [ -f "README_MACOS.txt" ]; then
-          cp README_MACOS.txt dist/dmg/
-          echo "✓ README_MACOS.txt incluso nel DMG"
-        fi
-        
-        # Crea link simbolico ad Applications per drag & drop
-        ln -s /Applications dist/dmg/Applications
-        
-        # Installa create-dmg per SLA obbligatoria (legal disclaimer)
-        brew install create-dmg
+        VER=$(grep -m1 'VERSION' src/main_gui_qt.py | grep -o '[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*')
+        [ -z "$VER" ] && VER="2.2.0"
+        echo "version=$VER" >> $GITHUB_OUTPUT
+        echo "Versione: $VER"
 
-        # Leggi versione dall'app (grep + sed, no Python multiline issues)
-        APP_VERSION=$(grep -m1 'VERSION\s*=' src/main_gui_qt.py | sed "s/.*VERSION\s*=\s*['\"]//;s/['\"].*//")
-        [ -z "$APP_VERSION" ] && APP_VERSION="2.2.0"
-        echo "Versione app: $APP_VERSION"
-
-        # Usa il file disclaimer già presente nel repo
+    - name: Crea DMG Apple Silicon
+      run: |
+        mkdir -p dist/dmg_arm64
+        cp -r dist/ATK-Pro.app dist/dmg_arm64/
+        [ -f "README_MACOS.txt" ] && cp README_MACOS.txt dist/dmg_arm64/
+        ln -s /Applications dist/dmg_arm64/Applications
         cp assets/en/testuali/disclaimer_legale_ATK-Pro.txt /tmp/atk-disclaimer.txt
-
-        # Crea DMG con SLA integrata (il disclaimer appare al primo montaggio,
-        # l'utente DEVE cliccare "Accetto" per procedere all'installazione)
+        brew install create-dmg
+        DMG_NAME="ATK-Pro-macOS-AppleSilicon-v${{ steps.ver.outputs.version }}.dmg"
         create-dmg \
-          --volname "ATK-Pro v${APP_VERSION}" \
+          --volname "ATK-Pro v${{ steps.ver.outputs.version }} — Apple Silicon" \
           --eula /tmp/atk-disclaimer.txt \
           --no-internet-enable \
-          dist/ATK-Pro-macOS.dmg \
-          dist/dmg/
+          dist/${DMG_NAME} \
+          dist/dmg_arm64/
+        echo "✓ $(du -sh dist/${DMG_NAME})"
 
-        echo "✓ DMG with mandatory SLA created: $(du -sh dist/ATK-Pro-macOS.dmg)"
-        
-    - name: Upload .app artifact
+    - name: Upload artifact (Apple Silicon app)
       uses: actions/upload-artifact@v4
       with:
-        name: ATK-Pro-macOS-app
+        name: ATK-Pro-macOS-AppleSilicon-app
         path: dist/ATK-Pro.app
         retention-days: 30
-        
-    - name: Upload DMG artifact
+
+    - name: Upload artifact (Apple Silicon DMG)
       uses: actions/upload-artifact@v4
       with:
-        name: ATK-Pro-macOS-dmg
-        path: dist/ATK-Pro-macOS.dmg
+        name: ATK-Pro-macOS-AppleSilicon-dmg
+        path: dist/ATK-Pro-macOS-AppleSilicon-v*.dmg
         retention-days: 30
-        
-    - name: Upload to GitHub Release (if tagged)
+
+    - name: Upload to GitHub Release (Apple Silicon)
       if: startsWith(github.ref, 'refs/tags/v')
       run: |
-        # Assicura che la release esista e non sia draft
-        # (gh release upload fallisce con 404 su release draft)
         REPO="$GITHUB_REPOSITORY"
         REL_ID=$(gh api "repos/$REPO/releases" \
           --jq "[.[] | select(.tag_name==\"${{ github.ref_name }}\")][0].id // empty" 2>/dev/null || true)
@@ -198,7 +295,7 @@ jobs:
             --notes "" --draft=false 2>/dev/null || true
         fi
         gh release upload "${{ github.ref_name }}" \
-          dist/ATK-Pro-macOS.dmg \
+          dist/ATK-Pro-macOS-AppleSilicon-v${{ steps.ver.outputs.version }}.dmg \
           --clobber
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
