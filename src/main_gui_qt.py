@@ -1026,15 +1026,10 @@ class MainWindow(QMainWindow):
         impostazioni_menu.addAction(gm("Chiudi"), self.close)
         menubar.addMenu(impostazioni_menu)
 
-        # setNativeMenuBar(False): incorpora il menu nella finestra (come Windows/Linux).
-        # Su macOS la menubar nativa appare in cima allo schermo e non è visibile
-        # nell'interfaccia dell'app. Con False, il menu è nel corpo della finestra.
-        menubar.setNativeMenuBar(False)
-        menubar.setStyleSheet(
-            "QMenuBar { background: #d2bb8a; color: #222; font-weight: bold; border: none; } "
-            "QMenuBar::item:selected { background: #e5d3b3; color: #222; } "
-            "QMenu { background: #f5e6c3; color: #222; } "
-        )
+        # Stile menubar originale (nessuna forzatura colore bianco sulle voci)
+        menubar.setStyleSheet("QMenuBar { background: #d2bb8a; color: #222; font-weight: bold; border: none; } "
+                  "QMenuBar::item:selected { background: #e5d3b3; color: #222; } "
+                  "QMenu { background: #f5e6c3; color: #222; } ")
 
         # Riga marrone sotto il menu (widget separato, non nel layout centrale)
         self.menu_separator = QLabel(self)
@@ -2821,15 +2816,8 @@ def mostra_banner_chiusura(glossario_data, lingua, banner_path, paypal_url_path,
                                     logging.debug(f"PayPal: aperto con {_prog}")
                                     break
                         elif _sys == "Darwin":
-                            # subprocess.Popen: indipendente dall'event loop Qt,
-                            # più affidabile da un handler aboutToQuit
-                            import subprocess as _subprocess
-                            try:
-                                _subprocess.Popen(["/usr/bin/open", url])
-                                opened = True
-                                logging.debug("PayPal: subprocess /usr/bin/open → ok")
-                            except Exception as _se:
-                                logging.debug(f"PayPal: subprocess /usr/bin/open fallito: {_se}")
+                            opened = QProcess.startDetached("open", [url])
+                            logging.debug(f"PayPal: open (macOS) -> {opened}")
                         else:
                             opened = QDesktopServices.openUrl(QUrl(url))
                             logging.debug(f"PayPal: QDesktopServices -> {opened}")
@@ -2894,20 +2882,16 @@ def main():
 
     app = QApplication(sys.argv)
 
-    # Su macOS il tema nativo Aqua si scontra con il QSS personalizzato:
-    # bottoni, label e dialog risultano illeggibili. Fusion è cross-platform
-    # e risponde correttamente agli stylesheet.
-    import platform as _plat
-    if _plat.system() == "Darwin":
-        app.setStyle("Fusion")
-        logging.debug("macOS: stile Fusion applicato per compatibilità stylesheet")
-
     # Font custom (usa asset_path per supportare bundle macOS/Windows)
     font1_path = asset_path("assets/common/fonts/Aref_Ruqaa/ArefRuqaa-Regular.ttf")
     font2_path = asset_path("assets/common/fonts/Crimson_Text/CrimsonText-Regular.ttf")
     QFontDatabase.addApplicationFont(font1_path)
     QFontDatabase.addApplicationFont(font2_path)
     logging.debug(f"Font custom caricati: {font1_path}, {font2_path}")
+
+    # Su macOS usa Fusion: Aqua nativo ignora parzialmente i fogli di stile QSS
+    if sys.platform == "darwin":
+        app.setStyle("Fusion")
 
     # Stile ATK da QSS
     file = QFile(asset_path("assets/common/testuali/atk_style.qss"))
@@ -2947,16 +2931,13 @@ def main():
         saved = _read_config_language()
         if saved:
             lingua = saved
-            # Su macOS controlla anche l'accettazione del disclaimer:
-            # se non ancora accettato (es. config da versione precedente),
-            # forza primo_avvio=True per mostrare il disclaimer al prossimo avvio.
             _disc_ok = _read_config_disclaimer_accepted()
             if sys.platform == "darwin" and not _disc_ok:
-                primo_avvio = True
-                logging.debug(f"macOS: lingua salvata ma disclaimer non accettato → primo_avvio=True")
+                primo_avvio = True  # disclaimer non ancora accettato
+                logging.debug("macOS: lingua salvata ma disclaimer non accettato, forzo primo avvio")
             else:
                 primo_avvio = False
-                logging.debug(f"Linux/macOS EXE: lingua da config file: {lingua}")
+            logging.debug(f"Linux/macOS EXE: lingua da config file: {lingua}")
         else:
             # Fallback: leggi /etc/atk-pro/defaults.json (scritto dal postinst)
             # Questo copre i casi in cui il postinst non ha trovato SUDO_USER
@@ -3055,10 +3036,9 @@ def main():
             except OSError as e:
                 logging.warning(f"Impossibile rimuovere flag pending-disclaimer: {e}")
         if (IS_PORTABLE or sys.platform == "darwin") and accettato:
-            # Portable / macOS: persisti l'accettazione nel config
-            # affinché non venga richiesta al prossimo avvio
+            # Portable/macOS: persisti l'accettazione nel config affinché non venga richiesta al prossimo avvio
             _write_config_disclaimer_accepted()
-            logging.info(f"{'Portable' if IS_PORTABLE else 'macOS'}: disclaimer accettato, salvato in config.json")
+            logging.info("Portable/macOS: disclaimer accettato, salvato in config.json")
         if not accettato:
             logging.warning("Disclaimer rifiutato → chiusura applicazione")
             # Cancella lingua salvata: al prossimo avvio primo_avvio=True / flag ancora presente

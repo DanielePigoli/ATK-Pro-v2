@@ -348,8 +348,17 @@ class Elaborazione:
         except Exception as e:
             logger.debug(f"[Playwright] Errore: {e}")
 
-        # Tentativo 3: Usa mappatura hardcoded o costruzione URL standard
-        logger.info("Usando fallback build_manifest_url (mappatura hardcoded)")
+        # Tentativo 3: HTTP GET diretto sulla pagina (senza browser, cerca containers/manifest nell'HTML)
+        try:
+            manifest_url = robust_find_manifest(self.ark_url)
+            if manifest_url:
+                logger.info(f"Manifest trovato (HTTP GET diretto): {manifest_url}")
+                return manifest_url
+        except Exception as e:
+            logger.debug(f"[HTTP Diretto] Errore robust_find_manifest: {e}")
+
+        # Tentativo 4: Usa costruzione URL standard come ultimo resort
+        logger.info("Usando fallback build_manifest_url (costruzione URL standard)")
         try:
             manifest_url = build_manifest_url(self.ark_url)
             logger.info(f"Manifest URL costruito: {manifest_url}")
