@@ -75,7 +75,7 @@ jobs:
         # Includi i browser Playwright nel bundle se disponibili
         PW_FLAGS=""
         if [ -n "${{ steps.pw_intel.outputs.browsers_path }}" ] && [ -d "${{ steps.pw_intel.outputs.browsers_path }}" ]; then
-          PW_FLAGS="--add-data '${{ steps.pw_intel.outputs.browsers_path }}:ms-playwright'"
+          PW_FLAGS="--add-data ${{ steps.pw_intel.outputs.browsers_path }}:ms-playwright"
           echo "✓ Browser Playwright inclusi da: ${{ steps.pw_intel.outputs.browsers_path }}"
         else
           echo "⚠ Browser Playwright non trovati, Playwright userà fallback"
@@ -232,7 +232,7 @@ jobs:
         # Includi i browser Playwright nel bundle se disponibili
         PW_FLAGS=""
         if [ -n "${{ steps.pw_silicon.outputs.browsers_path }}" ] && [ -d "${{ steps.pw_silicon.outputs.browsers_path }}" ]; then
-          PW_FLAGS="--add-data '${{ steps.pw_silicon.outputs.browsers_path }}:ms-playwright'"
+          PW_FLAGS="--add-data ${{ steps.pw_silicon.outputs.browsers_path }}:ms-playwright"
           echo "✓ Browser Playwright inclusi da: ${{ steps.pw_silicon.outputs.browsers_path }}"
         else
           echo "⚠ Browser Playwright non trovati, Playwright userà fallback"
