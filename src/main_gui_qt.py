@@ -2894,6 +2894,14 @@ def main():
 
     app = QApplication(sys.argv)
 
+    # Su macOS il tema nativo Aqua si scontra con il QSS personalizzato:
+    # bottoni, label e dialog risultano illeggibili. Fusion è cross-platform
+    # e risponde correttamente agli stylesheet.
+    import platform as _plat
+    if _plat.system() == "Darwin":
+        app.setStyle("Fusion")
+        logging.debug("macOS: stile Fusion applicato per compatibilità stylesheet")
+
     # Font custom (usa asset_path per supportare bundle macOS/Windows)
     font1_path = asset_path("assets/common/fonts/Aref_Ruqaa/ArefRuqaa-Regular.ttf")
     font2_path = asset_path("assets/common/fonts/Crimson_Text/CrimsonText-Regular.ttf")

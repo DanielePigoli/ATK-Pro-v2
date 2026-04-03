@@ -95,13 +95,35 @@ def extract_ud_canvas_id(driver) -> str | None:
 
 def extract_ud_canvas_id_from_infojson_xhr(url: str, timeout_ms: int = 30000) -> str | None:
     """
-    Estrae il canvas_id per documenti an_ud usando Playwright.
-    Per ora, ritorna None per far ricadere su fallback (dato che Playwright 
-    non funziona affidabilmente nel PyInstaller compilato).
-    Il fallback in elaborazione.py userà extract_canvas_id_from_url().
+    Estrae il canvas_id per documenti an_ud usando Playwright headless.
+    Carica la pagina e cerca il pattern canvasId nel sorgente JS-renderizzato.
     """
-    # NOTA: Playwright fallisce silenziosamente nel PyInstaller compilato
-    # perché non ha stdout/stderr. Disabilitato per ora.
-    # TODO: Implementare un metodo basato su requests HTTP + DOM parsing
-    log_to_file("[UD] extract_ud_canvas_id_from_infojson_xhr: Playwright disabilitato nel PyInstaller compilato")
+    log_to_file(f"[UD] Estrazione canvas ID via Playwright per: {url}")
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            context = browser.new_context()
+            page = context.new_page()
+            page.goto(url, timeout=timeout_ms)
+            page.wait_for_timeout(5000)
+            html = page.content()
+            browser.close()
+            # Cerca canvasId nel markup Mirador renderizzato
+            match = re.search(r"canvasId:\s*['\"]([^'\"]*)/([A-Za-z0-9_-]+)['\"]", html)
+            if match:
+                canvas_id = match.group(2)
+                log_to_file(f"[UD] Canvas ID trovato via Playwright: {canvas_id}")
+                return canvas_id
+            # Cerca anche nel formato JSON (@id nel manifest inline)
+            match2 = re.search(
+                r'"@id"\s*:\s*"https://(?:dam-)?antenati\.cultura\.gov\.it/[^"]+/([A-Za-z0-9_-]+)"',
+                html
+            )
+            if match2:
+                canvas_id = match2.group(1)
+                log_to_file(f"[UD] Canvas ID trovato via Playwright (@id JSON): {canvas_id}")
+                return canvas_id
+            log_to_file("[UD] canvasId non trovato nel HTML Playwright")
+    except Exception as e:
+        log_to_file(f"[UD] Errore Playwright: {e}")
     return None
