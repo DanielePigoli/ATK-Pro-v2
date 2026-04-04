@@ -998,12 +998,11 @@ class MainWindow(QMainWindow):
 
         # --- Servizi ---
         servizi_menu = QMenu(gm("Servizi"), self)
-        servizi_menu.addAction(gm("Integrazione API Portale Antenati"), self.funzione_in_sviluppo)
         servizi_menu.addAction(gm("Visualizzazione Immagini"), self.apri_visualizzatore_immagini)
         servizi_menu.addAction(gm("Visualizzazione Metadati JSON"), self.apri_visualizzatore_metadati)
         servizi_menu.addAction(gm("OCR Avanzato"), self.funzione_in_sviluppo)
         servizi_menu.addAction(gm("Traduzione OCR"), self.funzione_in_sviluppo)
-        servizi_menu.addAction(gm("Esportazione GEDCOM"), self.funzione_in_sviluppo)
+        servizi_menu.addAction(gm("Esportazione GEDCOM"), self.apri_esportazione_gedcom)
         menubar.addMenu(servizi_menu)
 
         # --- Documenti ---
@@ -1365,6 +1364,10 @@ class MainWindow(QMainWindow):
         layout.addWidget(ok_btn, alignment=Qt.AlignCenter)
         dlg.setLayout(layout)
         dlg.exec()
+    def apri_esportazione_gedcom(self):
+        from src.genealogy_dialog import GenealogyDialog
+        dialog = GenealogyDialog(self, self.glossario_data, self.lingua)
+        dialog.exec()
 
     def funzione_in_sviluppo(self):
         # Messaggio placeholder localizzato per tutte le voci Servizi
@@ -2892,6 +2895,19 @@ def main():
     # Su macOS usa Fusion: Aqua nativo ignora parzialmente i fogli di stile QSS
     if sys.platform == "darwin":
         app.setStyle("Fusion")
+        # Palette dark globale: garantisce che QDialog e tutti i widget
+        # ereditino sfondo scuro e testo bianco, indipendentemente dal QSS
+        _pal = QPalette()
+        _pal.setColor(QPalette.Window,          QColor(24, 24, 24))
+        _pal.setColor(QPalette.WindowText,      QColor(255, 255, 255))
+        _pal.setColor(QPalette.Base,            QColor(34, 34, 34))
+        _pal.setColor(QPalette.AlternateBase,   QColor(45, 45, 45))
+        _pal.setColor(QPalette.Text,            QColor(255, 255, 255))
+        _pal.setColor(QPalette.Button,          QColor(34, 34, 34))
+        _pal.setColor(QPalette.ButtonText,      QColor(255, 255, 255))
+        _pal.setColor(QPalette.Highlight,       QColor(166, 124, 82))
+        _pal.setColor(QPalette.HighlightedText, QColor(255, 255, 255))
+        app.setPalette(_pal)
 
     # Stile ATK da QSS
     file = QFile(asset_path("assets/common/testuali/atk_style.qss"))
