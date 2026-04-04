@@ -2895,6 +2895,10 @@ def main():
     # Su macOS usa Fusion: Aqua nativo ignora parzialmente i fogli di stile QSS
     if sys.platform == "darwin":
         app.setStyle("Fusion")
+        # Forza tutte le dialog (QFileDialog, QMessageBox) a usare il renderer Qt
+        # invece del picker nativo macOS, che ignora QPalette e QSS
+        from PySide6.QtCore import Qt as _Qt
+        app.setAttribute(_Qt.AA_DontUseNativeDialogs)
         # Palette dark globale: garantisce che QDialog e tutti i widget
         # ereditino sfondo scuro e testo bianco, indipendentemente dal QSS
         from PySide6.QtGui import QPalette as _QPalette, QColor as _QColor
