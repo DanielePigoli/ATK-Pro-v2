@@ -2897,16 +2897,17 @@ def main():
         app.setStyle("Fusion")
         # Palette dark globale: garantisce che QDialog e tutti i widget
         # ereditino sfondo scuro e testo bianco, indipendentemente dal QSS
-        _pal = QPalette()
-        _pal.setColor(QPalette.Window,          QColor(24, 24, 24))
-        _pal.setColor(QPalette.WindowText,      QColor(255, 255, 255))
-        _pal.setColor(QPalette.Base,            QColor(34, 34, 34))
-        _pal.setColor(QPalette.AlternateBase,   QColor(45, 45, 45))
-        _pal.setColor(QPalette.Text,            QColor(255, 255, 255))
-        _pal.setColor(QPalette.Button,          QColor(34, 34, 34))
-        _pal.setColor(QPalette.ButtonText,      QColor(255, 255, 255))
-        _pal.setColor(QPalette.Highlight,       QColor(166, 124, 82))
-        _pal.setColor(QPalette.HighlightedText, QColor(255, 255, 255))
+        from PySide6.QtGui import QPalette as _QPalette, QColor as _QColor
+        _pal = _QPalette()
+        _pal.setColor(_QPalette.Window,          _QColor(24, 24, 24))
+        _pal.setColor(_QPalette.WindowText,      _QColor(255, 255, 255))
+        _pal.setColor(_QPalette.Base,            _QColor(34, 34, 34))
+        _pal.setColor(_QPalette.AlternateBase,   _QColor(45, 45, 45))
+        _pal.setColor(_QPalette.Text,            _QColor(255, 255, 255))
+        _pal.setColor(_QPalette.Button,          _QColor(34, 34, 34))
+        _pal.setColor(_QPalette.ButtonText,      _QColor(255, 255, 255))
+        _pal.setColor(_QPalette.Highlight,       _QColor(166, 124, 82))
+        _pal.setColor(_QPalette.HighlightedText, _QColor(255, 255, 255))
         app.setPalette(_pal)
 
     # Stile ATK da QSS
