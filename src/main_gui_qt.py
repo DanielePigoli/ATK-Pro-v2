@@ -1609,7 +1609,7 @@ class MainWindow(QMainWindow):
         documents_dir = os.path.join(os.path.expanduser("~"), "Documents", "ATK-Pro")
         os.makedirs(documents_dir, exist_ok=True)
         default_path = os.path.join(documents_dir, "configurazione.json")
-        path, _ = QFileDialog.getSaveFileName(self, get_msg(self.glossario_data, "Esporta configurazione", self.lingua.upper()), default_path, "JSON Files (*.json)")
+        path, _ = QFileDialog.getSaveFileName(self, get_msg(self.glossario_data, "Esporta configurazione", self.lingua.upper()), default_path, "JSON Files (*.json)", options=_qfd_options())
         if path:
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(state, f, ensure_ascii=False, indent=2)
@@ -1635,7 +1635,7 @@ class MainWindow(QMainWindow):
         documents_dir = os.path.join(os.path.expanduser("~"), "Documents", "ATK-Pro")
         os.makedirs(documents_dir, exist_ok=True)
         default_path = os.path.join(documents_dir, "configurazione.json")
-        path, _ = QFileDialog.getOpenFileName(self, get_msg(self.glossario_data, "Importa configurazione", self.lingua.upper()), default_path, "JSON Files (*.json)")
+        path, _ = QFileDialog.getOpenFileName(self, get_msg(self.glossario_data, "Importa configurazione", self.lingua.upper()), default_path, "JSON Files (*.json)", options=_qfd_options())
         if path:
             with open(path, "r", encoding="utf-8") as f:
                 dati = json.load(f)
@@ -1813,7 +1813,8 @@ def action_modify_input(glossario_data, lingua, parent=None):
         if not os.path.exists(modified_path):
             modified_path, _ = QFileDialog.getOpenFileName(
                 parent,
-                get_msg(glossario_data, "Seleziona file input da modificare", lingua.upper())
+                get_msg(glossario_data, "Seleziona file input da modificare", lingua.upper()),
+                options=_qfd_options()
             )
 
         raw_text = load_input_file(modified_path)
@@ -2136,7 +2137,8 @@ def action_open_input(glossario_data, lingua, parent=None):
         parent,
         get_msg(glossario_data, "Apri input", lingua.upper()),
         os.path.join(BASE_DIR, "input"),
-        "Text (*.txt);;All (*.*)"
+        "Text (*.txt);;All (*.*)",
+        options=_qfd_options()
     )[0]
     if not path:
         return
@@ -2258,9 +2260,17 @@ def parse_record_types_from_file(path: str):
     return num_doc, num_reg
 
 
+def _qfd_options():
+    """Su macOS restituisce DontUseNativeDialog per evitare il picker nativo illeggibile."""
+    import sys as _sys
+    if _sys.platform == "darwin":
+        return QFileDialog.Option.DontUseNativeDialog
+    return QFileDialog.Option(0)
+
+
 def _pick_folder(title: str, default: str) -> str:
     """Apre QFileDialog partendo dalla cartella default; ritorna la scelta o '' se annullato."""
-    return QFileDialog.getExistingDirectory(None, title, default)
+    return QFileDialog.getExistingDirectory(None, title, default, _qfd_options())
 
 
 def action_select_output(glossario_data, lingua):
@@ -2711,7 +2721,7 @@ def action_placeholder(glossario_data, lingua, voce):
     documents_dir = str(Path.home() / 'Documents' / 'ATK-Pro')
     if voce == "Esporta configurazione":
         default_path = os.path.join(documents_dir, "ATK-Pro-config.json")
-        path, _ = QFileDialog.getSaveFileName(None, get_msg(glossario_data, "Esporta configurazione", lingua.upper()) or "Esporta configurazione", default_path, "File JSON (*.json)")
+        path, _ = QFileDialog.getSaveFileName(None, get_msg(glossario_data, "Esporta configurazione", lingua.upper()) or "Esporta configurazione", default_path, "File JSON (*.json)", options=_qfd_options())
         if not path:
             return
         # Aggiorna lo stato prima di salvare: prendi i dati reali dai widget/variabili
@@ -2732,7 +2742,7 @@ def action_placeholder(glossario_data, lingua, voce):
         msg.exec()
     elif voce == "Importa configurazione":
         default_path = os.path.join(documents_dir, "ATK-Pro-config.json")
-        path, _ = QFileDialog.getOpenFileName(None, get_msg(glossario_data, "Importa configurazione", lingua.upper()) or "Importa configurazione", default_path, "File JSON (*.json)")
+        path, _ = QFileDialog.getOpenFileName(None, get_msg(glossario_data, "Importa configurazione", lingua.upper()) or "Importa configurazione", default_path, "File JSON (*.json)", options=_qfd_options())
         if not path:
             return
         for w in app.topLevelWidgets():
