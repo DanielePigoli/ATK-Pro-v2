@@ -2932,6 +2932,30 @@ def main():
     else:
         logging.debug("Errore: impossibile caricare atk_style.qss")
 
+    # Su macOS: appende override dark per QMessageBox (QPalette non basta per il background)
+    if sys.platform == "darwin":
+        app.setStyleSheet(app.styleSheet() + """
+QMessageBox {
+    background-color: #181818;
+    color: #ffffff;
+}
+QMessageBox QLabel {
+    color: #ffffff;
+    background-color: transparent;
+}
+QMessageBox QPushButton {
+    background-color: #222222;
+    color: #ffffff;
+    border: 1px solid #a67c52;
+    padding: 4px 16px;
+    border-radius: 4px;
+    font-weight: bold;
+}
+QMessageBox QPushButton:hover {
+    background-color: #333333;
+}
+""")
+
     # Selezione lingua e gestione primo avvio
     _is_frozen = getattr(sys, 'frozen', False)
     primo_avvio = False
