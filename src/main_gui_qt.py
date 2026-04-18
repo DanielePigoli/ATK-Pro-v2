@@ -1532,6 +1532,13 @@ class MainWindow(QMainWindow):
         dlg.exec()
 
     def _mostra_html(self, titolo, percorso_html):
+        # Su macOS QWebEngineView richiede entitlements Chromium non disponibili
+        # con firma ad-hoc → apre il browser di sistema (automatico, nessuna azione utente)
+        if sys.platform == "darwin":
+            from PySide6.QtCore import QUrl
+            from PySide6.QtGui import QDesktopServices
+            QDesktopServices.openUrl(QUrl.fromLocalFile(os.path.abspath(percorso_html)))
+            return
         from PySide6.QtWidgets import QDialog, QVBoxLayout, QPushButton, QHBoxLayout
         from PySide6.QtWebEngineWidgets import QWebEngineView
         from PySide6.QtCore import QUrl, Qt
