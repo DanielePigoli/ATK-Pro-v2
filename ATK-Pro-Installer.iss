@@ -1,9 +1,9 @@
-; ATK-Pro v2.2.0 Installer Script per Inno Setup
+; ATK-Pro v2.2.1 Installer Script per Inno Setup
 ; Supporta 10 lingue con testi Unicode completi (arabo, ebraico, russo)
 ; Legge i disclaimer direttamente da assets/ 
 
 #define MyAppName "ATK-Pro"
-#define MyAppVersion "2.2.0"
+#define MyAppVersion "2.2.1"
 #define MyAppPublisher "ATK-Pro Project"
 #define MyAppURL "https://github.com/DanielePigoli/ATK-Pro"
 #define MyAppExeName "ATK-Pro.exe"
@@ -30,26 +30,26 @@ el.LicenseAcceptance=Αποδοχή Άδειας
 ro.LicenseAcceptance=Acceptarea Licenței
 sv.LicenseAcceptance=Licensacceptans
   ; Custom messages per localizzazione completa
-  en.NameAndVersion=ATK-Pro v2.2.0
-  it.NameAndVersion=ATK-Pro v2.2.0
-  es.NameAndVersion=ATK-Pro v2.2.0
-  de.NameAndVersion=ATK-Pro v2.2.0
-  fr.NameAndVersion=ATK-Pro v2.2.0
-  pt.NameAndVersion=ATK-Pro v2.2.0
-  nl.NameAndVersion=ATK-Pro v2.2.0
-  ar.NameAndVersion=ATK-Pro v2.2.0
-  he.NameAndVersion=ATK-Pro v2.2.0
-  ru.NameAndVersion=ATK-Pro v2.2.0
-  ja.NameAndVersion=ATK-Pro v2.2.0
-  zh.NameAndVersion=ATK-Pro v2.2.0
-  pl.NameAndVersion=ATK-Pro v2.2.0
-  tr.NameAndVersion=ATK-Pro v2.2.0
-  da.NameAndVersion=ATK-Pro v2.2.0
-  no.NameAndVersion=ATK-Pro v2.2.0
-  vi.NameAndVersion=ATK-Pro v2.2.0
-  el.NameAndVersion=ATK-Pro v2.2.0
-  ro.NameAndVersion=ATK-Pro v2.2.0
-  sv.NameAndVersion=ATK-Pro v2.2.0
+  en.NameAndVersion=ATK-Pro v2.2.1
+  it.NameAndVersion=ATK-Pro v2.2.1
+  es.NameAndVersion=ATK-Pro v2.2.1
+  de.NameAndVersion=ATK-Pro v2.2.1
+  fr.NameAndVersion=ATK-Pro v2.2.1
+  pt.NameAndVersion=ATK-Pro v2.2.1
+  nl.NameAndVersion=ATK-Pro v2.2.1
+  ar.NameAndVersion=ATK-Pro v2.2.1
+  he.NameAndVersion=ATK-Pro v2.2.1
+  ru.NameAndVersion=ATK-Pro v2.2.1
+  ja.NameAndVersion=ATK-Pro v2.2.1
+  zh.NameAndVersion=ATK-Pro v2.2.1
+  pl.NameAndVersion=ATK-Pro v2.2.1
+  tr.NameAndVersion=ATK-Pro v2.2.1
+  da.NameAndVersion=ATK-Pro v2.2.1
+  no.NameAndVersion=ATK-Pro v2.2.1
+  vi.NameAndVersion=ATK-Pro v2.2.1
+  el.NameAndVersion=ATK-Pro v2.2.1
+  ro.NameAndVersion=ATK-Pro v2.2.1
+  sv.NameAndVersion=ATK-Pro v2.2.1
 
   en.AdditionalIcons=Additional icons
   it.AdditionalIcons=Icone aggiuntive
